@@ -17,8 +17,8 @@
 
 // Supabase設定（プレースホルダー - 本番環境で置き換えてください）
 // 設定方法の詳細はREADME.mdを参照
-const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL = 'https://zwpjvfnekpqgxfsltpnz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3cGp2Zm5la3BxZ3hmc2x0cG56Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNDMzMTUsImV4cCI6MjA3OTgxOTMxNX0.WLABRojy9VBAdiHp3J9uk1QrCAL7ifJtc567dXrYhtI';
 
 // Supabaseクライアントの初期化
 let supabase = null;
