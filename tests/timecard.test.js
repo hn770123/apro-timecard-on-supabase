@@ -418,5 +418,7 @@ runner.test('getPatternFromSettings: 設定がない場合はデフォルト値�
 // テスト結果のサマリー
 const success = runner.summary();
 
-// 終了コード
-process.exit(success ? 0 : 1);
+// 終了コード（CI環境では終了コードで結果を判定）
+if (typeof process !== 'undefined' && process.exit) {
+    process.exit(success ? 0 : 1);
+}

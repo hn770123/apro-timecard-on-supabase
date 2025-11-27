@@ -294,20 +294,29 @@ function calculateNightOvertime(startTime, endTime, standardHours) {
     const startMinutes = timeToMinutes(startTime);
     const endMinutes = timeToMinutes(endTime);
     
-    // 深夜早朝時間帯: 22:00(1320分) ～ 翌5:00(300分 + 1440分)
-    const nightStart = 22 * 60; // 22:00
-    const morningEnd = 5 * 60; // 5:00
+    // 深夜早朝時間帯: 22:00 ～ 翌5:00
+    const nightStart = 22 * 60; // 22:00 = 1320分
+    const morningEnd = 5 * 60; // 5:00 = 300分
     
     let nightMinutes = 0;
     
-    // 22:00以降の勤務時間
-    if (endMinutes > nightStart) {
-        nightMinutes += Math.min(endMinutes, 24 * 60) - Math.max(startMinutes, nightStart);
+    // 勤務時間が深夜時間帯にかかる場合のみ計算
+    // 22:00以降の勤務時間（同日内）
+    if (endMinutes > nightStart && startMinutes < 24 * 60) {
+        const nightWorkStart = Math.max(startMinutes, nightStart);
+        const nightWorkEnd = endMinutes;
+        if (nightWorkEnd > nightWorkStart) {
+            nightMinutes += nightWorkEnd - nightWorkStart;
+        }
     }
     
-    // 5:00以前の勤務時間
-    if (startMinutes < morningEnd) {
-        nightMinutes += Math.min(endMinutes, morningEnd) - startMinutes;
+    // 5:00以前の勤務時間（早朝勤務がある場合）
+    if (startMinutes < morningEnd && endMinutes <= morningEnd) {
+        // 開始も終了も5:00以前の場合
+        nightMinutes += endMinutes - startMinutes;
+    } else if (startMinutes < morningEnd && endMinutes > morningEnd) {
+        // 開始が5:00以前で終了が5:00以降の場合
+        nightMinutes += morningEnd - startMinutes;
     }
     
     return Math.max(0, nightMinutes);

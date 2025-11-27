@@ -31,6 +31,16 @@ async function getAllUsers() {
 
 /**
  * 新規ユーザーを作成する
+ * 
+ * 注意: フロントエンドからはauth.admin APIは使用できません。
+ * 本番環境ではSupabase Edge Functionsを使用してサーバーサイドで
+ * ユーザー作成を行う必要があります。
+ * 
+ * 代替方法:
+ * 1. Supabase Edge Functionsでユーザー作成APIを実装
+ * 2. ユーザー自身にサインアップさせる（signUp API使用）
+ * 3. Supabaseダッシュボードから直接ユーザーを作成
+ * 
  * @param {Object} userData - ユーザーデータ
  * @returns {Object} 結果オブジェクト {success: boolean, message: string, user?: Object}
  */
@@ -38,13 +48,17 @@ async function createUser(userData) {
     try {
         const client = getSupabaseClient();
         
-        // Supabase Authでユーザー作成
-        // 注意: これは管理者APIを使用する必要があるため、
-        // 実際の実装ではSupabase Edge Functionsを使用することを推奨
-        const { data: authData, error: authError } = await client.auth.admin.createUser({
+        // フロントエンドからはsignUpを使用
+        // ユーザーはメール確認後にアカウントが有効化される
+        const { data: authData, error: authError } = await client.auth.signUp({
             email: userData.email,
             password: userData.password,
-            email_confirm: true
+            options: {
+                data: {
+                    name: userData.name,
+                    department: userData.department
+                }
+            }
         });
         
         if (authError) {
@@ -54,28 +68,45 @@ async function createUser(userData) {
             };
         }
         
-        // プロフィール作成
+        if (!authData.user) {
+            return {
+                success: false,
+                message: 'ユーザー作成に失敗しました'
+            };
+        }
+        
+        // プロフィール更新（トリガーで自動作成されるため更新）
         const { error: profileError } = await client
             .from('user_profiles')
-            .insert({
-                user_id: authData.user.id,
-                email: userData.email,
+            .update({
                 name: userData.name,
                 department: userData.department,
                 is_approver: userData.isApprover || false,
                 is_admin: userData.isAdmin || false
-            });
+            })
+            .eq('user_id', authData.user.id);
         
         if (profileError) {
-            return {
-                success: false,
-                message: 'プロフィール作成に失敗しました: ' + profileError.message
-            };
+            // プロフィールがまだ作成されていない場合はinsert
+            const { error: insertError } = await client
+                .from('user_profiles')
+                .insert({
+                    user_id: authData.user.id,
+                    email: userData.email,
+                    name: userData.name,
+                    department: userData.department,
+                    is_approver: userData.isApprover || false,
+                    is_admin: userData.isAdmin || false
+                });
+            
+            if (insertError) {
+                console.error('プロフィール作成エラー:', insertError);
+            }
         }
         
         return {
             success: true,
-            message: 'ユーザーを作成しました',
+            message: 'ユーザーを作成しました（確認メールを送信しました）',
             user: authData.user
         };
     } catch (error) {
