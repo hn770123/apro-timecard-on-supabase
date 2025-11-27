@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勤務月報システム - ログイン</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>勤務月報システム</h1>
+        </header>
+        
+        <main>
+            <!-- ログインフォーム -->
+            <div id="login-form" class="card">
+                <h2>ログイン</h2>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="email">メールアドレス</label>
+                        <input type="email" id="email" name="email" required placeholder="example@company.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">パスワード</label>
+                        <input type="password" id="password" name="password" required placeholder="パスワード">
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary">ログイン</button>
+                    </div>
+                    <div id="login-error" class="error-message" style="display: none;"></div>
+                </form>
+            </div>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 勤務月報システム</p>
+        </footer>
+    </div>
+    
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // ログイン済みの場合はダッシュボードにリダイレクト
+        document.addEventListener('DOMContentLoaded', async () => {
+            const session = await checkSession();
+            if (session) {
+                window.location.href = 'dashboard.html';
+            }
+        });
+        
+        // ログインフォームの処理
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const result = await login(email, password);
+                if (result.success) {
+                    window.location.href = 'dashboard.html';
+                } else {
+                    showError('login-error', result.message);
+                }
+            } catch (error) {
+                showError('login-error', 'ログインに失敗しました: ' + error.message);
+            }
+        });
+        
+        /**
+         * エラーメッセージを表示する
+         * @param {string} elementId - エラー表示要素のID
+         * @param {string} message - エラーメッセージ
+         */
+        function showError(elementId, message) {
+            const errorElement = document.getElementById(elementId);
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

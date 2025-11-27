@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勤務月報システム - ダッシュボード</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-content">
+                <h1>勤務月報システム</h1>
+                <nav>
+                    <span id="user-info"></span>
+                    <button id="logout-btn" class="btn btn-secondary">ログアウト</button>
+                </nav>
+            </div>
+        </header>
+        
+        <main>
+            <!-- メインナビゲーション -->
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-tab="timecard">勤務入力</button>
+                <button class="nav-tab" data-tab="monthly-settings">月間設定</button>
+                <button class="nav-tab" data-tab="approval" id="approval-tab" style="display: none;">承認管理</button>
+                <button class="nav-tab" data-tab="admin" id="admin-tab" style="display: none;">ユーザー管理</button>
+            </div>
+            
+            <!-- 月選択 -->
+            <div class="month-selector">
+                <button id="prev-month" class="btn btn-icon">&lt;</button>
+                <span id="current-month"></span>
+                <button id="next-month" class="btn btn-icon">&gt;</button>
+            </div>
+            
+            <!-- 承認状態表示 -->
+            <div id="approval-status" class="approval-status"></div>
+            
+            <!-- 勤務入力タブ -->
+            <div id="timecard-tab-content" class="tab-content active">
+                <div class="card">
+                    <h2>月間勤務一覧</h2>
+                    
+                    <!-- 月間集計 -->
+                    <div class="summary-section">
+                        <h3>月間集計</h3>
+                        <div class="summary-grid">
+                            <div class="summary-item">
+                                <span class="label">出勤日数</span>
+                                <span id="total-work-days" class="value">0</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">総労働時間</span>
+                                <span id="total-work-hours" class="value">0:00</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">残業時間（通常）</span>
+                                <span id="total-overtime" class="value">0:00</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">残業時間（深夜早朝）</span>
+                                <span id="total-night-overtime" class="value">0:00</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">残業時間（法定休日）</span>
+                                <span id="total-legal-holiday-overtime" class="value">0:00</span>
+                            </div>
+                            <div class="summary-item">
+                                <span class="label">残業時間（法定外休日）</span>
+                                <span id="total-extra-holiday-overtime" class="value">0:00</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 日毎の勤務一覧テーブル -->
+                    <div class="table-container">
+                        <table id="timecard-table">
+                            <thead>
+                                <tr>
+                                    <th>日付</th>
+                                    <th>曜日</th>
+                                    <th>勤務種類</th>
+                                    <th>出勤時刻</th>
+                                    <th>退勤時刻</th>
+                                    <th>遅刻時間</th>
+                                    <th>早退時間</th>
+                                    <th>残業時間</th>
+                                    <th>休暇種類</th>
+                                    <th>補足</th>
+                                    <th>パターン</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="timecard-body">
+                                <!-- 動的に生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- エクスポートボタン -->
+                    <div class="actions">
+                        <button id="export-csv" class="btn btn-secondary">CSV出力</button>
+                        <button id="request-approval" class="btn btn-primary">承認申請</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 日毎入力モーダル -->
+            <div id="daily-modal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>勤務入力 - <span id="modal-date"></span></h3>
+                        <button class="close-btn" id="close-daily-modal">&times;</button>
+                    </div>
+                    <form id="daily-form">
+                        <input type="hidden" id="edit-date">
+                        
+                        <div class="form-group">
+                            <label for="work-type">勤務の種類</label>
+                            <div class="checkbox-group">
+                                <select id="work-type" name="work-type">
+                                    <option value="work">出勤</option>
+                                    <option value="remote">出勤（リモート）</option>
+                                    <option value="late">遅刻</option>
+                                    <option value="early-leave">早退</option>
+                                    <option value="late-early">遅刻＋早退</option>
+                                    <option value="legal-holiday">休日（法定）</option>
+                                    <option value="extra-holiday">休日（法定外）</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="start-time">出勤時刻</label>
+                                <input type="time" id="start-time" name="start-time">
+                            </div>
+                            <div class="form-group">
+                                <label for="end-time">退勤時刻</label>
+                                <input type="time" id="end-time" name="end-time">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="late-time">遅刻時間（分）</label>
+                                <input type="number" id="late-time" name="late-time" min="0" value="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="early-leave-time">早退時間（分）</label>
+                                <input type="number" id="early-leave-time" name="early-leave-time" min="0" value="0">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="overtime">残業時間（分）</label>
+                            <input type="number" id="overtime" name="overtime" min="0" value="0">
+                            <small>※自動計算されますが変更可能です</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="leave-type">休暇種類</label>
+                            <select id="leave-type" name="leave-type">
+                                <option value="">選択なし</option>
+                                <option value="paid">有休</option>
+                                <option value="absent">欠勤</option>
+                                <option value="special">特休</option>
+                                <option value="congratulation">慶弔</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="work-pattern">勤務パターン</label>
+                            <select id="work-pattern" name="work-pattern">
+                                <option value="1">パターン1</option>
+                                <option value="2">パターン2</option>
+                                <option value="3">パターン3</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="note">補足欄</label>
+                            <textarea id="note" name="note" rows="3" placeholder="出勤以外の場合は入力が必要です"></textarea>
+                        </div>
+                        
+                        <div id="note-alert" class="alert alert-warning" style="display: none;">
+                            出勤以外の場合は補足欄への入力が推奨されます
+                        </div>
+                        
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="cancel-daily">キャンセル</button>
+                            <button type="submit" class="btn btn-primary">保存</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- 月間設定タブ -->
+            <div id="monthly-settings-tab-content" class="tab-content">
+                <div class="card">
+                    <h2>月間設定</h2>
+                    <form id="monthly-settings-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="employee-name">氏名</label>
+                                <input type="text" id="employee-name" name="employee-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="department">所属</label>
+                                <input type="text" id="department" name="department" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="standard-hours">1日標準就労時間</label>
+                            <input type="number" id="standard-hours" name="standard-hours" value="8" min="1" max="24" step="0.5">
+                            <span>時間</span>
+                        </div>
+                        
+                        <!-- 勤務パターン1 -->
+                        <div class="pattern-section">
+                            <h3>勤務パターン1</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>始業時刻</label>
+                                    <input type="time" id="pattern1-start" name="pattern1-start" value="09:00">
+                                </div>
+                                <div class="form-group">
+                                    <label>終業時刻</label>
+                                    <input type="time" id="pattern1-end" name="pattern1-end" value="18:00">
+                                </div>
+                            </div>
+                            <div class="break-times">
+                                <h4>休憩時間</h4>
+                                <div class="break-row">
+                                    <span>休憩1:</span>
+                                    <input type="time" id="pattern1-break1-start" name="pattern1-break1-start" value="12:00">
+                                    <span>～</span>
+                                    <input type="time" id="pattern1-break1-end" name="pattern1-break1-end" value="13:00">
+                                </div>
+                                <div class="break-row">
+                                    <span>休憩2:</span>
+                                    <input type="time" id="pattern1-break2-start" name="pattern1-break2-start">
+                                    <span>～</span>
+                                    <input type="time" id="pattern1-break2-end" name="pattern1-break2-end">
+                                </div>
+                                <div class="break-row">
+                                    <span>休憩3:</span>
+                                    <input type="time" id="pattern1-break3-start" name="pattern1-break3-start">
+                                    <span>～</span>
+                                    <input type="time" id="pattern1-break3-end" name="pattern1-break3-end">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 勤務パターン2 -->
+                        <div class="pattern-section">
+                            <h3>勤務パターン2</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>始業時刻</label>
+                                    <input type="time" id="pattern2-start" name="pattern2-start">
+                                </div>
+                                <div class="form-group">
+                                    <label>終業時刻</label>
+                                    <input type="time" id="pattern2-end" name="pattern2-end">
+                                </div>
+                            </div>
+                            <div class="break-times">
+                                <h4>休憩時間</h4>
+                                <div class="break-row">
+                                    <span>休憩1:</span>
+                                    <input type="time" id="pattern2-break1-start" name="pattern2-break1-start">
+                                    <span>～</span>
+                                    <input type="time" id="pattern2-break1-end" name="pattern2-break1-end">
+                                </div>
+                                <div class="break-row">
+                                    <span>休憩2:</span>
+                                    <input type="time" id="pattern2-break2-start" name="pattern2-break2-start">
+                                    <span>～</span>
+                                    <input type="time" id="pattern2-break2-end" name="pattern2-break2-end">
+                                </div>
+                                <div class="break-row">
+                                    <span>休憩3:</span>
+                                    <input type="time" id="pattern2-break3-start" name="pattern2-break3-start">
+                                    <span>～</span>
+                                    <input type="time" id="pattern2-break3-end" name="pattern2-break3-end">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 勤務パターン3 -->
+                        <div class="pattern-section">
+                            <h3>勤務パターン3</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>始業時刻</label>
+                                    <input type="time" id="pattern3-start" name="pattern3-start">
+                                </div>
+                                <div class="form-group">
+                                    <label>終業時刻</label>
+                                    <input type="time" id="pattern3-end" name="pattern3-end">
+                                </div>
+                            </div>
+                            <div class="break-times">
+                                <h4>休憩時間</h4>
+                                <div class="break-row">
+                                    <span>休憩1:</span>
+                                    <input type="time" id="pattern3-break1-start" name="pattern3-break1-start">
+                                    <span>～</span>
+                                    <input type="time" id="pattern3-break1-end" name="pattern3-break1-end">
+                                </div>
+                                <div class="break-row">
+                                    <span>休憩2:</span>
+                                    <input type="time" id="pattern3-break2-start" name="pattern3-break2-start">
+                                    <span>～</span>
+                                    <input type="time" id="pattern3-break2-end" name="pattern3-break2-end">
+                                </div>
+                                <div class="break-row">
+                                    <span>休憩3:</span>
+                                    <input type="time" id="pattern3-break3-start" name="pattern3-break3-start">
+                                    <span>～</span>
+                                    <input type="time" id="pattern3-break3-end" name="pattern3-break3-end">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="actions">
+                            <button type="button" id="copy-previous" class="btn btn-secondary">前月の設定をコピー</button>
+                            <button type="submit" class="btn btn-primary">設定を保存</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- 承認管理タブ -->
+            <div id="approval-tab-content" class="tab-content">
+                <div class="card">
+                    <h2>承認管理</h2>
+                    <div class="table-container">
+                        <table id="approval-table">
+                            <thead>
+                                <tr>
+                                    <th>申請者</th>
+                                    <th>対象月</th>
+                                    <th>申請日</th>
+                                    <th>状態</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="approval-body">
+                                <!-- 動的に生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ユーザー管理タブ -->
+            <div id="admin-tab-content" class="tab-content">
+                <div class="card">
+                    <h2>ユーザー管理</h2>
+                    <button id="add-user-btn" class="btn btn-primary">新規ユーザー追加</button>
+                    <div class="table-container">
+                        <table id="users-table">
+                            <thead>
+                                <tr>
+                                    <th>メールアドレス</th>
+                                    <th>氏名</th>
+                                    <th>所属</th>
+                                    <th>承認権限</th>
+                                    <th>管理者権限</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-body">
+                                <!-- 動的に生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ユーザー追加/編集モーダル -->
+            <div id="user-modal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 id="user-modal-title">ユーザー追加</h3>
+                        <button class="close-btn" id="close-user-modal">&times;</button>
+                    </div>
+                    <form id="user-form">
+                        <input type="hidden" id="edit-user-id">
+                        
+                        <div class="form-group">
+                            <label for="user-email">メールアドレス</label>
+                            <input type="email" id="user-email" name="user-email" required>
+                        </div>
+                        
+                        <div class="form-group" id="password-group">
+                            <label for="user-password">パスワード</label>
+                            <input type="password" id="user-password" name="user-password" minlength="6">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="user-name">氏名</label>
+                            <input type="text" id="user-name" name="user-name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="user-department">所属</label>
+                            <input type="text" id="user-department" name="user-department">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>権限設定</label>
+                            <div class="checkbox-group">
+                                <label>
+                                    <input type="checkbox" id="is-approver" name="is-approver">
+                                    承認権限
+                                </label>
+                                <label>
+                                    <input type="checkbox" id="is-admin" name="is-admin">
+                                    管理者権限
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="cancel-user">キャンセル</button>
+                            <button type="submit" class="btn btn-primary">保存</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>&copy; 2024 勤務月報システム</p>
+        </footer>
+    </div>
+    
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/timecard.js"></script>
+    <script src="js/admin.js"></script>
+    <script src="js/approval.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
