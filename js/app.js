@@ -67,6 +67,9 @@ function updateMonthDisplay() {
  * 権限に基づいてUIを更新する
  */
 async function checkPermissions() {
+    if (!currentUser) return;
+    currentProfile = await getUserProfile(currentUser.id); // 最新のプロフィールを再取得
+
     if (!currentProfile) return;
     
     // 承認タブ表示
