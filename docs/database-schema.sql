@@ -117,6 +117,31 @@ ALTER TABLE monthly_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE approvals ENABLE ROW LEVEL SECURITY;
 
+-- 権限チェック用関数 (無限再帰防止のためSECURITY DEFINERを使用)
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM user_profiles
+    WHERE user_id = auth.uid()
+    AND is_admin = true
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION is_approver()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM user_profiles
+    WHERE user_id = auth.uid()
+    AND is_approver = true
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- user_profiles ポリシー
 -- ユーザーは自分のプロフィールを読み取り可能
 CREATE POLICY "Users can view own profile" ON user_profiles
@@ -128,30 +153,15 @@ CREATE POLICY "Users can update own profile" ON user_profiles
 
 -- 管理者は全ユーザーのプロフィールを表示可能
 CREATE POLICY "Admins can view all profiles" ON user_profiles
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM user_profiles
-            WHERE user_id = auth.uid() AND is_admin = true
-        )
-    );
+    FOR SELECT USING (is_admin());
 
 -- 管理者は全ユーザーのプロフィールを更新可能
 CREATE POLICY "Admins can update all profiles" ON user_profiles
-    FOR UPDATE USING (
-        EXISTS (
-            SELECT 1 FROM user_profiles
-            WHERE user_id = auth.uid() AND is_admin = true
-        )
-    );
+    FOR UPDATE USING (is_admin());
 
 -- 管理者はプロフィールを作成可能
 CREATE POLICY "Admins can insert profiles" ON user_profiles
-    FOR INSERT WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM user_profiles
-            WHERE user_id = auth.uid() AND is_admin = true
-        )
-    );
+    FOR INSERT WITH CHECK (is_admin());
 
 -- monthly_settings ポリシー
 -- ユーザーは自分の月間設定を操作可能
@@ -160,12 +170,7 @@ CREATE POLICY "Users can manage own monthly settings" ON monthly_settings
 
 -- 承認者は全ユーザーの月間設定を閲覧可能
 CREATE POLICY "Approvers can view all monthly settings" ON monthly_settings
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM user_profiles
-            WHERE user_id = auth.uid() AND is_approver = true
-        )
-    );
+    FOR SELECT USING (is_approver());
 
 -- daily_records ポリシー
 -- ユーザーは自分の勤務記録を操作可能（承認済み以外）
@@ -187,12 +192,7 @@ CREATE POLICY "Users can view own approved records" ON daily_records
 
 -- 承認者は全ユーザーの勤務記録を閲覧可能
 CREATE POLICY "Approvers can view all daily records" ON daily_records
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM user_profiles
-            WHERE user_id = auth.uid() AND is_approver = true
-        )
-    );
+    FOR SELECT USING (is_approver());
 
 -- approvals ポリシー
 -- ユーザーは自分の承認申請を作成・閲覧可能
@@ -201,12 +201,7 @@ CREATE POLICY "Users can manage own approvals" ON approvals
 
 -- 承認者は全承認を閲覧・更新可能
 CREATE POLICY "Approvers can manage all approvals" ON approvals
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM user_profiles
-            WHERE user_id = auth.uid() AND is_approver = true
-        )
-    );
+    FOR ALL USING (is_approver());
 
 -- 新規ユーザー作成時にプロフィールを自動作成するトリガー
 CREATE OR REPLACE FUNCTION public.handle_new_user()
