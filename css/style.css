@@ -704,3 +704,346 @@ tbody tr.holiday {
         opacity: 1;
     }
 }
+
+/* 年間休日設定 */
+#annual-calendar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.month-card {
+    background-color: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.month-header {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 12px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background-color: var(--border-color);
+    padding: 1px;
+}
+
+.calendar-weekday {
+    background-color: var(--light-color);
+    padding: 8px 4px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.calendar-day {
+    background-color: white;
+    padding: 8px 4px;
+    min-height: 60px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    position: relative;
+}
+
+.calendar-day:not(.empty):hover {
+    background-color: var(--light-color);
+}
+
+.calendar-day.empty {
+    cursor: default;
+}
+
+.calendar-day.saturday {
+    background-color: #f0f8ff;
+}
+
+.calendar-day.sunday {
+    background-color: #fff5f5;
+}
+
+.calendar-day.has-holiday {
+    font-weight: 600;
+}
+
+.calendar-day.holiday-legal-holiday {
+    background-color: #ffe7e7 !important;
+}
+
+.calendar-day.holiday-extra-holiday {
+    background-color: #e7f0ff !important;
+}
+
+.calendar-day.holiday-saturday-work {
+    background-color: #fff3cd !important;
+}
+
+.day-number {
+    font-size: 0.9rem;
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+.holiday-label {
+    font-size: 0.7rem;
+    text-align: center;
+    padding: 2px;
+    border-radius: 3px;
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* パスワード変更警告バナー */
+.password-warning {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.password-warning strong {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 1.1rem;
+}
+
+.password-warning p {
+    margin-bottom: 12px;
+}
+
+.password-warning .btn {
+    margin-right: 10px;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.875rem;
+}
+
+/* パスワード強度インジケーター */
+.password-strength {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: var(--border-radius);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.password-strength.weak {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.password-strength.medium {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.password-strength.strong {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+/* システムチェック結果 */
+.check-summary {
+    padding: 20px;
+    border-radius: var(--border-radius);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.check-summary.success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.check-summary.error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.check-summary h3 {
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+.check-section {
+    margin-bottom: 20px;
+}
+
+.check-section h4 {
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-color);
+}
+
+.check-list {
+    list-style: none;
+    padding: 0;
+}
+
+.check-list li {
+    padding: 8px 12px;
+    margin-bottom: 4px;
+    border-radius: var(--border-radius);
+}
+
+.check-list li.success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.check-list li.error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.check-list li.warning {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.error-detail {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin-left: 20px;
+}
+
+/* 警告アイコン（月間一覧） */
+.warning-icon {
+    display: inline-block;
+    margin-left: 8px;
+    color: var(--warning-color);
+    cursor: help;
+    position: relative;
+}
+
+.warning-icon:hover .warning-tooltip {
+    display: block;
+}
+
+.warning-tooltip {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--dark-color);
+    color: white;
+    padding: 8px 12px;
+    border-radius: var(--border-radius);
+    white-space: nowrap;
+    z-index: 10;
+    margin-bottom: 5px;
+    font-size: 0.875rem;
+}
+
+.warning-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--dark-color);
+}
+
+/* スマートフォン対応の追加スタイル */
+@media (max-width: 768px) {
+    #annual-calendar {
+        grid-template-columns: 1fr;
+    }
+    
+    .calendar-day {
+        min-height: 50px;
+        padding: 4px 2px;
+    }
+    
+    .day-number {
+        font-size: 0.8rem;
+    }
+    
+    .holiday-label {
+        font-size: 0.65rem;
+    }
+    
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .table-container {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* カード形式での表示 */
+    .timecard-mobile-view {
+        display: block;
+    }
+    
+    .timecard-mobile-view .timecard-card {
+        background-color: white;
+        border-radius: var(--border-radius);
+        padding: 15px;
+        margin-bottom: 10px;
+        box-shadow: var(--shadow);
+    }
+    
+    .timecard-mobile-view .timecard-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .timecard-mobile-view .timecard-card-body {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        font-size: 0.875rem;
+    }
+    
+    .timecard-mobile-view .timecard-field {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .timecard-mobile-view .timecard-field-label {
+        color: var(--text-muted);
+        font-size: 0.75rem;
+        margin-bottom: 2px;
+    }
+    
+    .timecard-mobile-view .timecard-field-value {
+        font-weight: 500;
+    }
+}
+
+@media (max-width: 480px) {
+    .summary-item {
+        padding: 10px;
+    }
+    
+    .summary-item .label {
+        font-size: 0.75rem;
+    }
+    
+    .summary-item .value {
+        font-size: 1.2rem;
+    }
+    
+    .password-warning .btn {
+        display: block;
+        width: 100%;
+        margin-bottom: 8px;
+        margin-right: 0;
+    }
+}

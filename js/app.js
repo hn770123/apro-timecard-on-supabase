@@ -24,23 +24,26 @@ async function initApp() {
         window.location.href = 'index.html';
         return;
     }
-    
+
     // ユーザー情報取得
     currentUser = await getCurrentUser();
     if (!currentUser) {
         window.location.href = 'index.html';
         return;
     }
-    
+
     // プロフィール取得
     currentProfile = await getUserProfile(currentUser.id);
-    
+
     // UI初期化
     updateUserInfo();
     updateMonthDisplay();
     setupEventListeners();
     await checkPermissions();
     await loadMonthData();
+
+    // パスワード変更チェック
+    initPasswordChange();
 }
 
 /**
@@ -71,13 +74,13 @@ async function checkPermissions() {
     currentProfile = await getUserProfile(currentUser.id); // 最新のプロフィールを再取得
 
     if (!currentProfile) return;
-    
+
     // 承認タブ表示
     const approvalTab = document.getElementById('approval-tab');
     if (approvalTab && currentProfile.is_approver) {
         approvalTab.style.display = 'block';
     }
-    
+
     // 管理タブ表示
     const adminTab = document.getElementById('admin-tab');
     if (adminTab && currentProfile.is_admin) {
@@ -94,71 +97,106 @@ function setupEventListeners() {
         await logout();
         window.location.href = 'index.html';
     });
-    
+
     // 月切り替え
     document.getElementById('prev-month')?.addEventListener('click', () => {
         changeMonth(-1);
     });
-    
+
     document.getElementById('next-month')?.addEventListener('click', () => {
         changeMonth(1);
     });
-    
+
     // タブ切り替え
     document.querySelectorAll('.nav-tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
             switchTab(e.target.dataset.tab);
         });
     });
-    
+
     // 月間設定フォーム
     document.getElementById('monthly-settings-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         await saveMonthlySettingsForm();
     });
-    
+
     // 前月コピー
     document.getElementById('copy-previous')?.addEventListener('click', async () => {
         await copyPreviousMonthSettings();
     });
-    
+
     // 日毎入力モーダル
     document.getElementById('close-daily-modal')?.addEventListener('click', closeDailyModal);
     document.getElementById('cancel-daily')?.addEventListener('click', closeDailyModal);
-    
+
     document.getElementById('daily-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         await saveDailyRecordForm();
     });
-    
+
     // 勤務種類変更時のアラート表示
     document.getElementById('work-type')?.addEventListener('change', checkNoteAlert);
     document.getElementById('note')?.addEventListener('input', checkNoteAlert);
-    
+
     // 出退勤時刻変更時の自動計算
     document.getElementById('start-time')?.addEventListener('change', calculateTimesFromInput);
     document.getElementById('end-time')?.addEventListener('change', calculateTimesFromInput);
-    
+
     // CSV出力
     document.getElementById('export-csv')?.addEventListener('click', exportToCSV);
-    
+
     // 承認申請
     document.getElementById('request-approval')?.addEventListener('click', async () => {
         await submitApprovalRequest();
     });
-    
+
     // ユーザー管理モーダル
     document.getElementById('add-user-btn')?.addEventListener('click', () => {
         openUserModal();
     });
-    
+
     document.getElementById('close-user-modal')?.addEventListener('click', closeUserModal);
     document.getElementById('cancel-user')?.addEventListener('click', closeUserModal);
-    
+
     document.getElementById('user-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         await saveUserForm();
     });
+
+    // 年間休日設定
+    document.getElementById('prev-holiday-year')?.addEventListener('click', () => {
+        changeHolidayYear(-1);
+    });
+
+    document.getElementById('next-holiday-year')?.addEventListener('click', () => {
+        changeHolidayYear(1);
+    });
+
+    document.getElementById('close-holiday-modal')?.addEventListener('click', closeHolidayDialog);
+    document.getElementById('cancel-holiday')?.addEventListener('click', closeHolidayDialog);
+    document.getElementById('delete-holiday')?.addEventListener('click', deleteHolidaySetting);
+
+    document.getElementById('holiday-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await saveHolidaySetting();
+    });
+
+    // パスワード変更
+    document.getElementById('change-password-btn')?.addEventListener('click', openPasswordChangeModal);
+    document.getElementById('close-password-modal')?.addEventListener('click', closePasswordChangeModal);
+    document.getElementById('cancel-password')?.addEventListener('click', closePasswordChangeModal);
+
+    document.getElementById('password-change-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await changePassword();
+    });
+
+    document.getElementById('new-password')?.addEventListener('input', checkPasswordStrength);
+
+    // システムチェック
+    document.getElementById('system-check-btn')?.addEventListener('click', runSystemCheck);
+    document.getElementById('close-system-check-modal')?.addEventListener('click', closeSystemCheckModal);
+    document.getElementById('close-check-results')?.addEventListener('click', closeSystemCheckModal);
 }
 
 /**
@@ -167,7 +205,7 @@ function setupEventListeners() {
  */
 async function changeMonth(delta) {
     currentMonth += delta;
-    
+
     if (currentMonth < 1) {
         currentMonth = 12;
         currentYear -= 1;
@@ -175,7 +213,7 @@ async function changeMonth(delta) {
         currentMonth = 1;
         currentYear += 1;
     }
-    
+
     updateMonthDisplay();
     await loadMonthData();
 }
@@ -192,22 +230,24 @@ function switchTab(tabName) {
             tab.classList.add('active');
         }
     });
-    
+
     // タブコンテンツ更新
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
     });
-    
+
     const activeContent = document.getElementById(`${tabName}-tab-content`);
     if (activeContent) {
         activeContent.classList.add('active');
     }
-    
+
     // タブごとのデータ読み込み
     if (tabName === 'approval') {
         loadApprovalList();
     } else if (tabName === 'admin') {
         loadUserList();
+    } else if (tabName === 'annual-holidays') {
+        initAnnualHolidays();
     }
 }
 
@@ -216,16 +256,16 @@ function switchTab(tabName) {
  */
 async function loadMonthData() {
     if (!currentUser) return;
-    
+
     // 月間設定取得
     monthlySettings = await getMonthlySettings(currentUser.id, currentYear, currentMonth);
-    
+
     // 日毎記録取得
     dailyRecords = await getDailyRecords(currentUser.id, currentYear, currentMonth);
-    
+
     // 承認状態確認
     isEditable = await isMonthEditable(currentUser.id, currentYear, currentMonth);
-    
+
     // UI更新
     updateApprovalStatusDisplay();
     updateMonthlySettingsForm();
@@ -239,9 +279,9 @@ async function loadMonthData() {
 async function updateApprovalStatusDisplay() {
     const statusEl = document.getElementById('approval-status');
     if (!statusEl) return;
-    
+
     const approval = await getApprovalStatus(currentUser.id, currentYear, currentMonth);
-    
+
     if (!approval || approval.status === 'draft') {
         statusEl.textContent = '';
         statusEl.className = 'approval-status';
@@ -249,7 +289,7 @@ async function updateApprovalStatusDisplay() {
         statusEl.textContent = getApprovalStatusLabel(approval.status);
         statusEl.className = `approval-status ${getApprovalStatusClass(approval.status)}`;
     }
-    
+
     // 承認済みの場合は承認申請ボタンを無効化
     const requestBtn = document.getElementById('request-approval');
     if (requestBtn) {
@@ -268,14 +308,14 @@ function updateMonthlySettingsForm() {
         document.getElementById('department').value = currentProfile.department || '';
         return;
     }
-    
+
     if (!monthlySettings) return;
-    
+
     // 基本情報
     document.getElementById('employee-name').value = monthlySettings.name || '';
     document.getElementById('department').value = monthlySettings.department || '';
     document.getElementById('standard-hours').value = monthlySettings.standard_hours || 8;
-    
+
     // パターン1
     document.getElementById('pattern1-start').value = monthlySettings.pattern1_start || '09:00';
     document.getElementById('pattern1-end').value = monthlySettings.pattern1_end || '18:00';
@@ -285,7 +325,7 @@ function updateMonthlySettingsForm() {
     document.getElementById('pattern1-break2-end').value = monthlySettings.pattern1_break2_end || '';
     document.getElementById('pattern1-break3-start').value = monthlySettings.pattern1_break3_start || '';
     document.getElementById('pattern1-break3-end').value = monthlySettings.pattern1_break3_end || '';
-    
+
     // パターン2
     document.getElementById('pattern2-start').value = monthlySettings.pattern2_start || '';
     document.getElementById('pattern2-end').value = monthlySettings.pattern2_end || '';
@@ -295,7 +335,7 @@ function updateMonthlySettingsForm() {
     document.getElementById('pattern2-break2-end').value = monthlySettings.pattern2_break2_end || '';
     document.getElementById('pattern2-break3-start').value = monthlySettings.pattern2_break3_start || '';
     document.getElementById('pattern2-break3-end').value = monthlySettings.pattern2_break3_end || '';
-    
+
     // パターン3
     document.getElementById('pattern3-start').value = monthlySettings.pattern3_start || '';
     document.getElementById('pattern3-end').value = monthlySettings.pattern3_end || '';
@@ -315,7 +355,7 @@ async function saveMonthlySettingsForm() {
         showToast('承認済みのため編集できません', 'error');
         return;
     }
-    
+
     const settings = {
         user_id: currentUser.id,
         year: currentYear,
@@ -323,7 +363,7 @@ async function saveMonthlySettingsForm() {
         name: document.getElementById('employee-name').value,
         department: document.getElementById('department').value,
         standard_hours: parseFloat(document.getElementById('standard-hours').value) || 8,
-        
+
         // パターン1
         pattern1_start: document.getElementById('pattern1-start').value || null,
         pattern1_end: document.getElementById('pattern1-end').value || null,
@@ -333,7 +373,7 @@ async function saveMonthlySettingsForm() {
         pattern1_break2_end: document.getElementById('pattern1-break2-end').value || null,
         pattern1_break3_start: document.getElementById('pattern1-break3-start').value || null,
         pattern1_break3_end: document.getElementById('pattern1-break3-end').value || null,
-        
+
         // パターン2
         pattern2_start: document.getElementById('pattern2-start').value || null,
         pattern2_end: document.getElementById('pattern2-end').value || null,
@@ -343,7 +383,7 @@ async function saveMonthlySettingsForm() {
         pattern2_break2_end: document.getElementById('pattern2-break2-end').value || null,
         pattern2_break3_start: document.getElementById('pattern2-break3-start').value || null,
         pattern2_break3_end: document.getElementById('pattern2-break3-end').value || null,
-        
+
         // パターン3
         pattern3_start: document.getElementById('pattern3-start').value || null,
         pattern3_end: document.getElementById('pattern3-end').value || null,
@@ -354,9 +394,9 @@ async function saveMonthlySettingsForm() {
         pattern3_break3_start: document.getElementById('pattern3-break3-start').value || null,
         pattern3_break3_end: document.getElementById('pattern3-break3-end').value || null
     };
-    
+
     const result = await saveMonthlySettings(settings);
-    
+
     if (result.success) {
         showToast(result.message, 'success');
         monthlySettings = settings;
@@ -370,17 +410,17 @@ async function saveMonthlySettingsForm() {
  */
 async function copyPreviousMonthSettings() {
     const prevSettings = await getPreviousMonthSettings(currentUser.id, currentYear, currentMonth);
-    
+
     if (!prevSettings) {
         showToast('前月の設定がありません', 'info');
         return;
     }
-    
+
     // フォームに反映
     document.getElementById('employee-name').value = prevSettings.name || '';
     document.getElementById('department').value = prevSettings.department || '';
     document.getElementById('standard-hours').value = prevSettings.standard_hours || 8;
-    
+
     // パターン1-3をコピー
     for (let i = 1; i <= 3; i++) {
         document.getElementById(`pattern${i}-start`).value = prevSettings[`pattern${i}_start`] || '';
@@ -392,7 +432,7 @@ async function copyPreviousMonthSettings() {
         document.getElementById(`pattern${i}-break3-start`).value = prevSettings[`pattern${i}_break3_start`] || '';
         document.getElementById(`pattern${i}-break3-end`).value = prevSettings[`pattern${i}_break3_end`] || '';
     }
-    
+
     showToast('前月の設定をコピーしました', 'success');
 }
 
@@ -402,32 +442,32 @@ async function copyPreviousMonthSettings() {
 function renderTimecardTable() {
     const tbody = document.getElementById('timecard-body');
     if (!tbody) return;
-    
+
     tbody.innerHTML = '';
-    
+
     const daysInMonth = getDaysInMonth(currentYear, currentMonth);
     const recordMap = {};
-    
+
     // 記録をマップに変換
     for (const record of dailyRecords) {
         const day = new Date(record.work_date).getDate();
         recordMap[day] = record;
     }
-    
+
     for (let day = 1; day <= daysInMonth; day++) {
         const record = recordMap[day] || {};
         const dayOfWeek = getDayOfWeek(currentYear, currentMonth, day);
         const weekend = isWeekend(currentYear, currentMonth, day);
-        
+
         const tr = document.createElement('tr');
-        
+
         // 週末のスタイル
         if (weekend.isSunday) {
             tr.classList.add('sunday');
         } else if (weekend.isSaturday) {
             tr.classList.add('saturday');
         }
-        
+
         tr.innerHTML = `
             <td>${day}</td>
             <td>${dayOfWeek}</td>
@@ -446,10 +486,10 @@ function renderTimecardTable() {
                 </button>
             </td>
         `;
-        
+
         tbody.appendChild(tr);
     }
-    
+
     // 編集ボタンのイベント
     tbody.querySelectorAll('.edit-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -464,7 +504,7 @@ function renderTimecardTable() {
  */
 function updateSummary() {
     const summary = calculateMonthlySummary(dailyRecords, monthlySettings);
-    
+
     document.getElementById('total-work-days').textContent = summary.workDays;
     document.getElementById('total-work-hours').textContent = minutesToTimeString(summary.totalWorkMinutes);
     document.getElementById('total-overtime').textContent = minutesToTimeString(summary.totalOvertime);
@@ -480,18 +520,18 @@ function updateSummary() {
 function openDailyModal(day) {
     const modal = document.getElementById('daily-modal');
     if (!modal) return;
-    
+
     // 日付設定
     const dateStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     document.getElementById('edit-date').value = dateStr;
     document.getElementById('modal-date').textContent = `${currentYear}年${currentMonth}月${day}日`;
-    
+
     // 既存記録を取得
     const record = dailyRecords.find(r => {
         const recordDay = new Date(r.work_date).getDate();
         return recordDay === day;
     });
-    
+
     if (record) {
         document.getElementById('work-type').value = record.work_type || 'work';
         document.getElementById('start-time').value = record.start_time || '';
@@ -503,8 +543,21 @@ function openDailyModal(day) {
         document.getElementById('work-pattern').value = record.work_pattern || 1;
         document.getElementById('note').value = record.note || '';
     } else {
-        // デフォルト値
-        document.getElementById('work-type').value = 'work';
+        // 年間休日設定を確認して初期値を設定
+        const holiday = getHolidayForDate(dateStr);
+        let defaultWorkType = 'work';
+
+        if (holiday) {
+            if (holiday.holiday_type === 'legal-holiday') {
+                defaultWorkType = 'legal-holiday';
+            } else if (holiday.holiday_type === 'extra-holiday') {
+                defaultWorkType = 'extra-holiday';
+            } else if (holiday.holiday_type === 'saturday-work') {
+                defaultWorkType = 'work';
+            }
+        }
+
+        document.getElementById('work-type').value = defaultWorkType;
         document.getElementById('start-time').value = monthlySettings?.pattern1_start || '09:00';
         document.getElementById('end-time').value = monthlySettings?.pattern1_end || '18:00';
         document.getElementById('late-time').value = 0;
@@ -514,7 +567,7 @@ function openDailyModal(day) {
         document.getElementById('work-pattern').value = 1;
         document.getElementById('note').value = '';
     }
-    
+
     checkNoteAlert();
     modal.style.display = 'flex';
 }
@@ -536,9 +589,9 @@ function checkNoteAlert() {
     const workType = document.getElementById('work-type').value;
     const note = document.getElementById('note').value;
     const alertEl = document.getElementById('note-alert');
-    
+
     if (!alertEl) return;
-    
+
     // 出勤以外で補足欄が空の場合にアラート表示
     if (workType !== 'work' && workType !== 'remote' && !note.trim()) {
         alertEl.style.display = 'block';
@@ -555,23 +608,23 @@ function calculateTimesFromInput() {
     const endTime = document.getElementById('end-time').value;
     const workType = document.getElementById('work-type').value;
     const patternNum = parseInt(document.getElementById('work-pattern').value) || 1;
-    
+
     if (!startTime || !endTime || !monthlySettings) return;
-    
+
     const pattern = getPatternFromSettings(monthlySettings, patternNum);
     const standardHours = monthlySettings.standard_hours || 8;
-    
+
     // 遅刻時間計算
     const lateTime = calculateLateTime(startTime, pattern.start);
     document.getElementById('late-time').value = lateTime;
-    
+
     // 早退時間計算
     const earlyLeaveTime = calculateEarlyLeaveTime(endTime, pattern.end);
     document.getElementById('early-leave-time').value = earlyLeaveTime;
-    
+
     // 労働時間計算
     const workTime = calculateWorkTime(startTime, endTime, pattern);
-    
+
     // 残業時間計算
     const overtime = calculateOvertime(workTime, standardHours, workType);
     document.getElementById('overtime').value = overtime.total;
@@ -586,19 +639,19 @@ async function saveDailyRecordForm() {
         closeDailyModal();
         return;
     }
-    
+
     const workDate = document.getElementById('edit-date').value;
     const startTime = document.getElementById('start-time').value;
     const endTime = document.getElementById('end-time').value;
     const workType = document.getElementById('work-type').value;
     const patternNum = parseInt(document.getElementById('work-pattern').value) || 1;
-    
+
     // 深夜残業時間計算
     let nightOvertime = 0;
     if (startTime && endTime) {
         nightOvertime = calculateNightOvertime(startTime, endTime, monthlySettings?.standard_hours || 8);
     }
-    
+
     const record = {
         user_id: currentUser.id,
         work_date: workDate,
@@ -613,9 +666,9 @@ async function saveDailyRecordForm() {
         work_pattern: patternNum,
         note: document.getElementById('note').value || null
     };
-    
+
     const result = await saveDailyRecord(record);
-    
+
     if (result.success) {
         showToast(result.message, 'success');
         closeDailyModal();
@@ -630,7 +683,7 @@ async function saveDailyRecordForm() {
  */
 function exportToCSV() {
     const csv = generateCSV(dailyRecords, monthlySettings, currentYear, currentMonth);
-    
+
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -638,7 +691,7 @@ function exportToCSV() {
     link.download = `勤務表_${currentYear}年${currentMonth}月.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    
+
     showToast('CSVを出力しました', 'success');
 }
 
@@ -650,13 +703,13 @@ async function submitApprovalRequest() {
         showToast('すでに承認されています', 'error');
         return;
     }
-    
+
     if (!confirm(`${currentYear}年${currentMonth}月の承認申請を送信しますか？`)) {
         return;
     }
-    
+
     const result = await requestApproval(currentUser.id, currentYear, currentMonth);
-    
+
     if (result.success) {
         showToast(result.message, 'success');
         await loadMonthData();
@@ -671,22 +724,22 @@ async function submitApprovalRequest() {
 async function loadApprovalList() {
     const tbody = document.getElementById('approval-body');
     if (!tbody) return;
-    
+
     tbody.innerHTML = '<tr><td colspan="5">読み込み中...</td></tr>';
-    
+
     const approvals = await getAllApprovals();
-    
+
     if (approvals.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5">承認データがありません</td></tr>';
         return;
     }
-    
+
     tbody.innerHTML = '';
-    
+
     for (const approval of approvals) {
         const tr = document.createElement('tr');
         const userName = approval.user_profiles?.name || '不明';
-        
+
         tr.innerHTML = `
             <td>${userName}</td>
             <td>${approval.year}年${approval.month}月</td>
@@ -702,10 +755,10 @@ async function loadApprovalList() {
                 ` : ''}
             </td>
         `;
-        
+
         tbody.appendChild(tr);
     }
-    
+
     // 承認ボタンイベント
     tbody.querySelectorAll('.approve-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -717,7 +770,7 @@ async function loadApprovalList() {
             }
         });
     });
-    
+
     // 却下ボタンイベント
     tbody.querySelectorAll('.reject-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -730,7 +783,7 @@ async function loadApprovalList() {
             }
         });
     });
-    
+
     // 取消ボタンイベント
     tbody.querySelectorAll('.cancel-approval-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -750,21 +803,21 @@ async function loadApprovalList() {
 async function loadUserList() {
     const tbody = document.getElementById('users-body');
     if (!tbody) return;
-    
+
     tbody.innerHTML = '<tr><td colspan="6">読み込み中...</td></tr>';
-    
+
     const users = await getAllUsers();
-    
+
     if (users.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6">ユーザーがいません</td></tr>';
         return;
     }
-    
+
     tbody.innerHTML = '';
-    
+
     for (const user of users) {
         const tr = document.createElement('tr');
-        
+
         tr.innerHTML = `
             <td>${user.email}</td>
             <td>${user.name || '-'}</td>
@@ -776,10 +829,10 @@ async function loadUserList() {
                 <button class="btn btn-small btn-danger delete-user-btn" data-id="${user.user_id}">削除</button>
             </td>
         `;
-        
+
         tbody.appendChild(tr);
     }
-    
+
     // 編集ボタンイベント
     tbody.querySelectorAll('.edit-user-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -790,7 +843,7 @@ async function loadUserList() {
             }
         });
     });
-    
+
     // 削除ボタンイベント
     tbody.querySelectorAll('.delete-user-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -811,10 +864,10 @@ async function loadUserList() {
 function openUserModal(user = null) {
     const modal = document.getElementById('user-modal');
     if (!modal) return;
-    
+
     const title = document.getElementById('user-modal-title');
     const passwordGroup = document.getElementById('password-group');
-    
+
     if (user) {
         title.textContent = 'ユーザー編集';
         document.getElementById('edit-user-id').value = user.user_id;
@@ -840,7 +893,7 @@ function openUserModal(user = null) {
         document.getElementById('is-approver').checked = false;
         document.getElementById('is-admin').checked = false;
     }
-    
+
     modal.style.display = 'flex';
 }
 
@@ -859,7 +912,7 @@ function closeUserModal() {
  */
 async function saveUserForm() {
     const userId = document.getElementById('edit-user-id').value;
-    
+
     if (userId) {
         // 更新
         const result = await updateUserProfile(userId, {
@@ -868,9 +921,9 @@ async function saveUserForm() {
             isApprover: document.getElementById('is-approver').checked,
             isAdmin: document.getElementById('is-admin').checked
         });
-        
+
         showToast(result.message, result.success ? 'success' : 'error');
-        
+
         if (result.success) {
             closeUserModal();
             await loadUserList();
@@ -885,9 +938,9 @@ async function saveUserForm() {
             isApprover: document.getElementById('is-approver').checked,
             isAdmin: document.getElementById('is-admin').checked
         });
-        
+
         showToast(result.message, result.success ? 'success' : 'error');
-        
+
         if (result.success) {
             closeUserModal();
             await loadUserList();
@@ -918,13 +971,13 @@ function showToast(message, type = 'info') {
         container.className = 'toast-container';
         document.body.appendChild(container);
     }
-    
+
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
-    
+
     container.appendChild(toast);
-    
+
     setTimeout(() => {
         toast.remove();
     }, 3000);
