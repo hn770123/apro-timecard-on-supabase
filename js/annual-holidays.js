@@ -233,8 +233,6 @@ async function saveHolidaySetting() {
                 holiday_date: dateStr,
                 holiday_type: type,
                 note: note || null
-            }, {
-                onConflict: 'user_id,year,holiday_date'
             });
 
         if (error) throw error;
@@ -245,7 +243,7 @@ async function saveHolidaySetting() {
         renderAnnualCalendar();
     } catch (error) {
         console.error('休日設定の保存エラー:', error);
-        showToast('休日設定の保存に失敗しました', 'error');
+        showToast(`休日設定の保存に失敗しました: ${error.message}`, 'error');
     }
 }
 
