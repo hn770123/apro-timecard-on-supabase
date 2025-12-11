@@ -26,13 +26,33 @@ CREATE INDEX IF NOT EXISTS idx_annual_holidays_date ON annual_holidays(holiday_d
 ALTER TABLE annual_holidays ENABLE ROW LEVEL SECURITY;
 
 -- 5. annual_holidays ポリシー
--- ユーザーは自分の年間休日設定を操作可能
-CREATE POLICY "Users can manage own annual holidays" ON annual_holidays
-    FOR ALL USING (auth.uid() = user_id);
+-- ユーザーは自分の年間休日設定を閲覧可能
+CREATE POLICY "Users can view own annual holidays" ON annual_holidays
+    FOR SELECT USING (auth.uid() = user_id);
+
+-- ユーザーは自分の年間休日設定を作成可能
+CREATE POLICY "Users can insert own annual holidays" ON annual_holidays
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- ユーザーは自分の年間休日設定を更新可能
+CREATE POLICY "Users can update own annual holidays" ON annual_holidays
+    FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- ユーザーは自分の年間休日設定を削除可能
+CREATE POLICY "Users can delete own annual holidays" ON annual_holidays
+    FOR DELETE USING (auth.uid() = user_id);
 
 -- 管理者は全ユーザーの年間休日設定を閲覧可能
 CREATE POLICY "Admins can view all annual holidays" ON annual_holidays
     FOR SELECT USING (is_admin());
+
+-- 管理者は全ユーザーの年間休日設定を更新可能
+CREATE POLICY "Admins can update all annual holidays" ON annual_holidays
+    FOR UPDATE USING (is_admin()) WITH CHECK (is_admin());
+
+-- 管理者は全ユーザーの年間休日設定を削除可能
+CREATE POLICY "Admins can delete all annual holidays" ON annual_holidays
+    FOR DELETE USING (is_admin());
 
 -- 6. updated_at 自動更新トリガー
 CREATE TRIGGER update_annual_holidays_updated_at
